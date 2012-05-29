@@ -41,7 +41,6 @@ module Vimeo
 
           # free memory (for big file uploads)
           @data = nil
-
           @id = response.body
         end
       end

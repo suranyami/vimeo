@@ -20,7 +20,7 @@ module Vimeo
           check_quota
           authorize
           upload
-          raise UploadError.new, "Validation of chunks failed." unless valid?
+          # raise UploadError.new, "Validation of chunks failed." unless valid?
           complete
 
           return video_id
@@ -52,6 +52,7 @@ module Vimeo
           while (chunk_data = io.read(CHUNK_SIZE)) do
             chunk = Chunk.new(self, chunk_data)
             chunk.upload
+            p "uploading a chunk of size #{chunk.size}"
             chunks << chunk
           end
         end
@@ -63,18 +64,33 @@ module Vimeo
 
         # Compares Vimeo's chunk list with own chunk list. Returns +true+ if identical.
         def valid?
-          received, sent = received_chunk_sizes, sent_chunk_sizes
-          sent.all? { |id, size| received[id] == size }
+          received = received_chunk_sizes
+          p "received = #{received}"
+          sent = sent_chunk_sizes
+          p "sent = #{sent}"
+          passed = true
+          chunks.each_with_index do |chunk, index|
+            size = chunk.size
+            p "size = #{size}"
+            p "index = #{index}"
+            this_okay = (received[index] == size)
+            p "ok? #{this_okay}"
+            passed = passed && this_okay
+          end
+          passed
         end
 
         # Returns a hash of the sent chunks and their respective sizes.
         def sent_chunk_sizes
-          Hash[chunks.map { |chunk| [chunk.id, chunk.size] }]
+          
+          chunks.each_with_index {|chunk, index| [index, chunk.size]}
         end
 
         # Returns a of Vimeo's received chunks and their respective sizes.
         def received_chunk_sizes
+          puts "Getting received_chunk_sizes"
           verification    = vimeo.verify_chunks(id)
+          p "verification #{verification}"
           chunk_list      = verification["ticket"]["chunks"]["chunk"]
           chunk_list      = [chunk_list] unless chunk_list.is_a?(Array)
           Hash[chunk_list.map { |chunk| [chunk["id"], chunk["size"].to_i] }]
